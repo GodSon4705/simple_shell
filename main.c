@@ -1,66 +1,73 @@
 #include "shell.h"
 
 /**
-* prompt - checks for interactive mode and write prompt
-* to standard output.
-* Return: void
-*/
-
-void prompt(void)
+ * free_data - frees data structure
+ *
+ * @datash: data structure
+ * Return: no return
+ */
+void free_data(data_shell *datash)
 {
-	if (isatty(STDIN_FILENO))
+	unsigned int i;
+
+	for (i = 0; datash->_environ[i]; i++)
 	{
-		write(STDOUT_FILENO, "$ ", 2);
+		free(datash->_environ[i]);
 	}
+
+	free(datash->_environ);
+	free(datash->pid);
 }
 
 /**
-* main - Entry point of the shell program.
-* @argc: argument count.
-* @argv: pointer to an array of strings.
-* Return: 0 always
-*/
-
-int main(int argc, char **argv)
+ * set_data - Initialize data structure
+ *
+ * @datash: data structure
+ * @av: argument vector
+ * Return: no return
+ */
+void set_data(data_shell *datash, char **av)
 {
-	char *path, *fullPath, *lineptr;
-	int builtinf_status, status, flag = 0;
-	(void)argc;
+	unsigned int i;
 
-	path = fullPath = lineptr = NULL;
-	while (1)
+	datash->av = av;
+	datash->input = NULL;
+	datash->args = NULL;
+	datash->status = 0;
+	datash->counter = 1;
+
+	for (i = 0; environ[i]; i++)
+		;
+
+	datash->_environ = malloc(sizeof(char *) * (i + 1));
+
+	for (i = 0; environ[i]; i++)
 	{
-		prompt();
-		lineptr = _readline(stdin);
-		if (_strcmp(lineptr, "\n", 1) == 0)
-		{	free(lineptr);
-			continue;
-		}
-		argv = split_string(lineptr);
-		if (argv[0] == NULL)
-			continue;
-		builtinf_status = exe_builtinf(argv);
-		if (builtinf_status == 0 || builtinf_status == -1)
-		{	free(argv);
-			free(lineptr);
-		}
-		if (builtinf_status == 0)
-			continue;
-		if (builtinf_status == -1)
-			exit(0);
-		path = _getenv("PATH");
-		fullPath = find_exec(argv[0], fullPath, path);
-		if (fullPath == NULL)
-		{
-			fullPath = argv[0];
-		}
-		else
-			flag = 1;
-
-		status = _exec(fullPath, argv);
-		if (status == -1)
-			get_error(2);
-		free_memory(argv, path, lineptr, fullPath, flag);
+		datash->_environ[i] = _strdup(environ[i]);
 	}
-	return (0);
+
+	datash->_environ[i] = NULL;
+	datash->pid = aux_itoa(getpid());
+}
+
+/**
+ * main - Entry point
+ *
+ * @ac: argument count
+ * @av: argument vector
+ *
+ * Return: 0 on success.
+ */
+int main(int ac, char **av)
+{
+	data_shell datash;
+	(void) ac;
+
+	signal(SIGINT, get_sigint);
+	set_data(&datash, av);
+	shell_loop(&datash);
+	free_data(&datash);
+	if (datash.status < 0)
+		return (255);
+	return (datash.status);
 }
